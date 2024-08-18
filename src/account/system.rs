@@ -18,7 +18,7 @@ use super::{token::TokenAccountBalance, ParsedAccount};
 pub struct SystemAccount<'a> {
     pub account: &'a Account,
     pub key: &'a Pubkey,
-    pub token_accounts: Vec<TokenAccountBalance>,
+    pub token_accounts: Option<Vec<TokenAccountBalance>>,
 }
 
 impl<'a> SystemAccount<'a> {
@@ -31,50 +31,52 @@ impl<'a> SystemAccount<'a> {
             return None;
         }
 
-        // Check if this account has tokenkeg accounts
-        let tokenkeg_accounts_futures = client
-            .get_token_accounts_by_owner(key, TokenAccountsFilter::ProgramId(spl_token::ID))
-            .await
-            .unwrap()
-            .into_iter()
-            .map(parse_keyed_account_to_token)
-            .map(|account| async move { get_symbol_for_token_account(&account, &client).await });
+        // TODO: no need to fetch token accounts if there is no flag to display them
 
-        let mut token_accounts: Vec<TokenAccountBalance> =
-            futures::stream::iter(tokenkeg_accounts_futures)
-                .buffer_unordered(10)
-                .collect()
-                .await;
-
-        // Check if this account has token22 accounts
-        let token22_accounts_futures = client
-            .get_token_accounts_by_owner(key, TokenAccountsFilter::ProgramId(spl_token_2022::ID))
-            .await
-            .unwrap()
-            .into_iter()
-            .map(parse_keyed_account_to_token)
-            .map(|account| async move { get_symbol_for_token_account(&account, &client).await });
-
-        // Collect all accounts
-        token_accounts.extend(
-            futures::stream::iter(token22_accounts_futures)
-                .buffer_unordered(10)
-                .collect::<Vec<_>>()
-                .await,
-        );
-
-        // Sort tokens by symbol
-        token_accounts.sort_by(|a, b| match (&a.symbol, &b.symbol) {
-            (Some(_), None) => Ordering::Less,
-            (None, Some(_)) => Ordering::Greater,
-            (Some(a_sym), Some(b_sym)) => a_sym.cmp(b_sym),
-            (None, None) => Ordering::Equal,
-        });
+        // // Check if this account has tokenkeg accounts
+        // let tokenkeg_accounts_futures = client
+        //     .get_token_accounts_by_owner(key, TokenAccountsFilter::ProgramId(spl_token::ID))
+        //     .await
+        //     .unwrap()
+        //     .into_iter()
+        //     .map(parse_keyed_account_to_token)
+        //     .map(|account| async move { get_symbol_for_token_account(&account, &client).await });
+        //
+        // let mut token_accounts: Vec<TokenAccountBalance> =
+        //     futures::stream::iter(tokenkeg_accounts_futures)
+        //         .buffer_unordered(10)
+        //         .collect()
+        //         .await;
+        //
+        // // Check if this account has token22 accounts
+        // let token22_accounts_futures = client
+        //     .get_token_accounts_by_owner(key, TokenAccountsFilter::ProgramId(spl_token_2022::ID))
+        //     .await
+        //     .unwrap()
+        //     .into_iter()
+        //     .map(parse_keyed_account_to_token)
+        //     .map(|account| async move { get_symbol_for_token_account(&account, &client).await });
+        //
+        // // Collect all accounts
+        // token_accounts.extend(
+        //     futures::stream::iter(token22_accounts_futures)
+        //         .buffer_unordered(10)
+        //         .collect::<Vec<_>>()
+        //         .await,
+        // );
+        //
+        // // Sort tokens by symbol
+        // token_accounts.sort_by(|a, b| match (&a.symbol, &b.symbol) {
+        //     (Some(_), None) => Ordering::Less,
+        //     (None, Some(_)) => Ordering::Greater,
+        //     (Some(a_sym), Some(b_sym)) => a_sym.cmp(b_sym),
+        //     (None, None) => Ordering::Equal,
+        // });
 
         Some(ParsedAccount::System(SystemAccount {
             account,
             key,
-            token_accounts,
+            token_accounts: None,
         }))
     }
 
@@ -87,21 +89,28 @@ impl<'a> SystemAccount<'a> {
         account_table.add_row(row!["SOL balance", sol_balance]);
 
         let mut token_account_table = Table::new();
-        token_account_table
-            .add_row(row![c->"Token Account", c->"Token", c->"Balance", c->"Standard"]);
-        for balance in self.token_accounts {
-            let meta_or_mint = balance.mint;
-            token_account_table.add_row(row![
-                balance.key,
-                if let Some(symbol) = balance.symbol {
-                    symbol
-                } else {
-                    meta_or_mint
-                },
-                balance.balance,
-                balance.program
-            ]);
+        match self.token_accounts {
+            Some(_) => {
+                token_account_table
+                    .add_row(row![c->"Token Account", c->"Token", c->"Balance", c->"Standard"]);
+            //     for balance in self.token_accounts {
+            //         let meta_or_mint = balance.mint;
+            //         token_account_table.add_row(row![
+            //     balance.key,
+            //     if let Some(symbol) = balance.symbol {
+            //         symbol
+            //     } else {
+            //         meta_or_mint
+            //     },
+            //     balance.balance,
+            //     balance.program
+            // ]);
+            //     }
+            }
+            None => {
+            }
         }
+
 
         // Print the tables to stdout
         let mut table_of_tables = Table::new();

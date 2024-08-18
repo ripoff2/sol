@@ -7,6 +7,7 @@ use solana_sdk::{pubkey::Pubkey, signature::Signature};
 mod account;
 mod transaction;
 mod utils;
+mod slot;
 
 /// A command line explorer for the Solana blockchain! Inspect transactions
 /// and accounts with this explorer!
@@ -20,7 +21,7 @@ pub struct ExplorerCli {
     #[arg(
         long,
         short = 'u',
-        default_value = "http://api.mainnet-beta.solana.com",
+        default_value = "http://localhost:9182",
         global = true
     )]
     rpc_url: String,
@@ -33,6 +34,8 @@ pub enum Command {
 
     /// Provide an account pubkey to inspect account contents
     Account(Account),
+
+    Slot(Slot),
 }
 
 #[derive(Debug, Parser, Clone)]
@@ -49,6 +52,13 @@ pub struct Account {
     pubkey: Pubkey,
 }
 
+#[derive(Debug, Parser, Clone)]
+pub struct Slot {
+    /// Slot number to inspect
+    #[arg()]
+    slot: u64,
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let args = ExplorerCli::parse();
@@ -56,5 +66,6 @@ async fn main() {
     match args.command {
         Command::Transaction(transaction) => transaction::handler(args.rpc_url, transaction).await,
         Command::Account(account) => account::handler(args.rpc_url, account).await,
+        Command::Slot(slot) => slot::handler(args.rpc_url, slot).await,
     }
 }

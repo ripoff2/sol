@@ -3373,6 +3373,7 @@ version = "0.4.0"
 dependencies = [
  "base64 0.22.0",
  "bs58 0.5.1",
+ "chrono",
  "clap 4.5.3",
  "colored",
  "fd_bs58",
